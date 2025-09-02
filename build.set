@@ -1,4 +1,4 @@
-profile : profile_name = {
+profile : gcc = {
     src = [main.c, glad.c, file2.c]
     include = ["C:\ProgrammingUtils\OpenGL\includes"]
     libFolder = ["C:\ProgrammingUtils\OpenGL\lib"]
@@ -6,13 +6,18 @@ profile : profile_name = {
     out = [main]  
     compilerPath = [gcc]
     args = [-Wall]
-    compilerFormat = []
+    compilerFormat = [gcc/clang]
+    linkerOptions = [-Map, output.map]
 }
 
-profile : profile_name_two = {
+profile : msvc = {
     src = [main.c, glad.c, file2.c]
-    out = [main]
-    compilerPath = [gcc]
+    include = ["C:\ProgrammingUtils\OpenGL\includes"]
+    libFolder = ["C:\ProgrammingUtils\OpenGL\lib"]
+    libs = [glfw3.lib, kernel32.lib]
+    out = [main]  
+    compilerPath = [cl]
+    compilerFormat = [msvc]
 }
 
 profile : profile_name_three={}

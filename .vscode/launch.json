@@ -11,7 +11,6 @@
             "program": "${fileDirname}\\build.exe",
             "args": [
                 "-printOnly",
-                "profile_name_three"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

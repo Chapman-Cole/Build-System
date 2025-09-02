@@ -4,7 +4,7 @@
 #include <string.h>
 
 // Determines the max length of the command that could be output to gcc
-#define MAX_COMMAND_LEN 4500
+#define MAX_COMMAND_LEN 5500
 // Determines the maximum number of elements per line
 #define SRC_INDICES_LEN 100
 
@@ -28,6 +28,7 @@ typedef struct BuildInfo {
     char** args;
     char** out;
     char** compilerPath;
+    char** linkerOptions;
     unsigned int compilerFormat;
 } BuildInfo;
 
@@ -56,7 +57,22 @@ int getCompilerFormatType(char* file, int offset);
 
 int compilerOutputGccClang(BuildInfo* build_info, bool printOnly);
 
+int compilerOutputMsvc(BuildInfo* build_info, bool printOnly);
+
+// prepend and append could be NULL, as in nothing would be prepended or appended
+// Note: the prepended string would come before each string element in the args list when placed in the command buffer, and likewise
+// but after each string element for the append string
+int formatCommand(char** args, char* command, int* commandCount, char* prepend, char* append);
+
+void printHelpMessage(void);
+
 int main(int argc, char* argv[]) {
+    if (argc > 1) {
+        if (strcmp(argv[1], "-help") == 0) {
+            printHelpMessage();
+            return 0;
+        }
+    }
     char* fstring = NULL;
     prepFileString(&fstring);
 
@@ -68,6 +84,7 @@ int main(int argc, char* argv[]) {
     build_info.out = NULL;
     build_info.compilerPath = NULL;
     build_info.args = NULL;
+    build_info.linkerOptions = NULL;
 
     // If -generateCommand is passed into build.exe as the first argument, it will only generate the command
     // and not invoke the compiler
@@ -93,7 +110,7 @@ int main(int argc, char* argv[]) {
             compilerOutputGccClang(&build_info, printOnly);
             break;
         case COMPILER_FORMAT_MSVC:
-            printf("Not completed yet.\n");
+            compilerOutputMsvc(&build_info, printOnly);
             break;
         default:
             printf("Compiler Format was not properly specified.\n");
@@ -245,6 +262,7 @@ void getBuildInfo(char* profile, char* file, BuildInfo* build_info) {
     getLineInfo(&build_info->libFolders, "libFolder=[", file, offset);
     getLineInfo(&build_info->libs, "libs=[", file, offset);
     getLineInfo(&build_info->args, "args=[", file, offset);
+    getLineInfo(&build_info->linkerOptions, "linkerOptions=[", file, offset);
 }
 
 // This assumes null terminated strings
@@ -409,130 +427,55 @@ int compilerOutputGccClang(BuildInfo* build_info, bool printOnly) {
     }
 
     // Add compiler first
-    int compiler_len = strlen(build_info->compilerPath[0]);
-    if (compiler_len + 1 < MAX_COMMAND_LEN) {
-        memcpy(command, build_info->compilerPath[0], compiler_len);
-        commandCount += compiler_len;
-        command[commandCount] = ' ';
-        commandCount++;
-    } else {
-        printf("Maximum command length exceeded.\n");
-        exit(-1);
-    }
+    formatCommand(build_info->compilerPath, command, &commandCount, NULL, " ");
 
     // Next, add the source files
-    for (int i = 0; build_info->srcFiles[i] != NULL; i++) {
-        int src_len = strlen(build_info->srcFiles[i]);
-        if (commandCount + src_len + 1 < MAX_COMMAND_LEN) {
-            memcpy(command + commandCount, build_info->srcFiles[i], src_len);
-            commandCount += src_len;
-            command[commandCount] = ' ';
-            commandCount++;
-        } else {
-            printf("Maximum command length exceeded.\n");
-            exit(-1);
-        }
-    }
+    formatCommand(build_info->srcFiles, command, &commandCount, NULL, " ");
 
     // Next, add include Folders, if they exist
     if (build_info->includeFolders != NULL) {
-        char* includeArg = "-I";
-        int includeArgLen = strlen(includeArg);
-
-        for (int i = 0; build_info->includeFolders[i] != NULL; i++) {
-            int includeFolderLen = strlen(build_info->includeFolders[i]);
-            if (commandCount + includeFolderLen + 1 + includeArgLen <
-                MAX_COMMAND_LEN) {
-                memcpy(command + commandCount, includeArg, includeArgLen);
-                commandCount += includeArgLen;
-
-                memcpy(command + commandCount, build_info->includeFolders[i],
-                       includeFolderLen);
-                commandCount += includeFolderLen;
-
-                command[commandCount] = ' ';
-                commandCount++;
-            } else {
-                printf("Maximum command length exceeded.\n");
-                exit(-1);
-            }
-        }
+        formatCommand(build_info->includeFolders, command, &commandCount, "-I", " ");
     }
 
     // Next, add the lib folders, if they exist
     if (build_info->libFolders != NULL) {
-        char* libFolderArg = "-L";
-        int libFolderArgLen = strlen(libFolderArg);
-
-        for (int i = 0; build_info->libFolders[i] != NULL; i++) {
-            int libFolderLen = strlen(build_info->libFolders[i]);
-            if (commandCount + libFolderLen + 1 + libFolderArgLen <
-                MAX_COMMAND_LEN) {
-                memcpy(command + commandCount, libFolderArg, libFolderArgLen);
-                commandCount += libFolderArgLen;
-
-                memcpy(command + commandCount, build_info->libFolders[i],
-                       libFolderLen);
-                commandCount += libFolderLen;
-
-                command[commandCount] = ' ';
-                commandCount++;
-            } else {
-                printf("Maximum command length exceeded.\n");
-                exit(-1);
-            }
-        }
+        formatCommand(build_info->libFolders, command, &commandCount, "-L", " ");
     }
 
     // Next, add the libraries, if they exist
     if (build_info->libs != NULL) {
-        char* libArg = "-l:";
-        int libArgLen = strlen(libArg);
-
-        for (int i = 0; build_info->libs[i] != NULL; i++) {
-            int libLen = strlen(build_info->libs[i]);
-            if (commandCount + libLen + 1 + libArgLen < MAX_COMMAND_LEN) {
-                memcpy(command + commandCount, libArg, libArgLen);
-                commandCount += libArgLen;
-
-                memcpy(command + commandCount, build_info->libs[i], libLen);
-                commandCount += libLen;
-
-                command[commandCount] = ' ';
-                commandCount++;
-            } else {
-                printf("Maximum command length exceeded.\n");
-                exit(-1);
-            }
-        }
+        formatCommand(build_info->libs, command, &commandCount, "-l:", " ");
     }
 
     // Next, add the arguments, if they exist
     if (build_info->args != NULL) {
-        for (int i = 0; build_info->args[i] != NULL; i++) {
-            int argsLen = strlen(build_info->args[i]);
-            if (commandCount + argsLen + 1 < MAX_COMMAND_LEN) {
-                memcpy(command + commandCount, build_info->args[i], argsLen);
-                commandCount += argsLen;
-                command[commandCount] = ' ';
-                commandCount++;
-            } else {
-                printf("Maximum command length exceeded.\n");
-                exit(-1);
-            }
+        formatCommand(build_info->args, command, &commandCount, NULL, " ");
+    }
+
+    // Next, add the linker options, if they exist
+    // To do this, linker options will be passed comma separated using -Wl
+    // It would look something like -Wl,-Map,output.map,etc.
+    if (build_info->linkerOptions != NULL) {
+        char* linkOps = "-Wl,";
+        int linkOpsLen = strlen(linkOps);
+        if (commandCount + linkOpsLen < MAX_COMMAND_LEN) {
+            memcpy(command + commandCount, linkOps, linkOpsLen);
+            commandCount += linkOpsLen;
+        }
+
+        if (build_info->linkerOptions != NULL) {
+            formatCommand(build_info->linkerOptions, command, &commandCount, NULL, ",");
         }
     }
 
     // Finally, add the output file
-    char* outputArg = "-o ";
-    int outputArgLen = strlen(outputArg);
-    int outLen = strlen(build_info->out[0]);
-    if (commandCount + outputArgLen + outLen + 1 < MAX_COMMAND_LEN) {
-        memcpy(command + commandCount, outputArg, outputArgLen);
-        commandCount += outputArgLen;
-        memcpy(command + commandCount, build_info->out[0], outLen);
-        commandCount += outLen;
+    formatCommand(build_info->out, command, &commandCount, "-o ", "");
+
+    if (commandCount < MAX_COMMAND_LEN) {
         command[commandCount] = '\0';
+    } else {
+        printf("Maximum command length exceeded.\n");
+        exit(-1);
     }
 
     printf("%s\n", command);
@@ -540,6 +483,8 @@ int compilerOutputGccClang(BuildInfo* build_info, bool printOnly) {
     if (printOnly == false) {
         system(command);
     }
+
+    return 0;
 }
 
 int getCompilerFormatType(char* file, int offset) {
@@ -584,4 +529,175 @@ int getCompilerFormatType(char* file, int offset) {
     }
 
     return -1;
+}
+
+int compilerOutputMsvc(BuildInfo* build_info, bool printOnly) {
+    int commandCount = 0;
+    char* command = (char*)malloc((MAX_COMMAND_LEN + 1) * sizeof(char));
+    if (command == NULL) {
+        printf("Failed to allocate memeory for command\n");
+        exit(-1);
+    }
+
+    // Add compiler first
+    formatCommand(build_info->compilerPath, command, &commandCount, NULL, " ");
+
+    // Next, add the arguments, if they exist
+    if (build_info->args != NULL) {
+        formatCommand(build_info->args, command, &commandCount, NULL, " ");
+    }
+
+    // Next, add include Folders, if they exist
+    if (build_info->includeFolders != NULL) {
+        formatCommand(build_info->includeFolders, command, &commandCount, "/I ", " ");
+    }
+
+    // Next, add the source files
+    formatCommand(build_info->srcFiles, command, &commandCount, NULL, " ");
+
+    // cl.exe requires that /link be placed before any linker options
+    char* link = "/link ";
+    int linkLen = strlen(link);
+    if (commandCount + linkLen < MAX_COMMAND_LEN) {
+        memcpy(command + commandCount, link, linkLen);
+        commandCount += linkLen;
+    } else {
+        printf("Maximum command length exceeded.\n");
+        exit(-1);
+    }
+
+    // Next, add the lib folders, if they exist
+    if (build_info->libFolders != NULL) {
+        formatCommand(build_info->libFolders, command, &commandCount, "/LIBPATH:", " ");
+    }
+
+    // Next, add the libraries, if they exist
+    if (build_info->libs != NULL) {
+        formatCommand(build_info->libs, command, &commandCount, NULL, " ");
+    }
+
+    // Next, add the linker options (these must come after /link), if they exist
+    if (build_info->linkerOptions != NULL) {
+        formatCommand(build_info->linkerOptions, command, &commandCount, NULL, " ");
+    }
+
+    // Finally, add the output file
+    formatCommand(build_info->out, command, &commandCount, "/OUT:", "");
+
+    if (commandCount < MAX_COMMAND_LEN) {
+        command[commandCount] = '\0';
+    } else {
+        printf("Maximum command length exceeded.\n");
+        exit(-1);
+    }
+
+    printf("%s\n", command);
+
+    if (printOnly == false) {
+        system(command);
+    }
+
+    return 0;
+}
+
+int formatCommand(char** args, char* command, int* commandCount, char* prepend, char* append) {
+    if (prepend == NULL && append == NULL) {
+        for (int i = 0; args[i] != NULL; i++) {
+            int argsLen = strlen(args[i]);
+            if (*commandCount + argsLen + 1 < MAX_COMMAND_LEN) {
+                memcpy(command + *commandCount, args[i], argsLen);
+                *commandCount += argsLen;
+            } else {
+                printf("Maximum command length exceeded.\n");
+                exit(-1);
+            }
+        }
+    } else if (prepend != NULL && append == NULL) {
+        int prependLen = strlen(prepend);
+        for (int i = 0; args[i] != NULL; i++) {
+            int argsLen = strlen(args[i]);
+            if (*commandCount + argsLen + prependLen < MAX_COMMAND_LEN) {
+                memcpy(command + *commandCount, prepend, prependLen);
+                *commandCount += prependLen;
+
+                memcpy(command + *commandCount, args[i], argsLen);
+                *commandCount += argsLen;
+            } else {
+                printf("Maximum command length exceeded.\n");
+                exit(-1);
+            }
+        }
+    } else if (prepend == NULL && append != NULL) {
+        int appendLen = strlen(append);
+
+        for (int i = 0; args[i] != NULL; i++) {
+            int argsLen = strlen(args[i]);
+            if (*commandCount + argsLen + appendLen < MAX_COMMAND_LEN) {
+                memcpy(command + *commandCount, args[i], argsLen);
+                *commandCount += argsLen;
+
+                memcpy(command + *commandCount, append, appendLen);
+                *commandCount += appendLen;
+            } else {
+                printf("Maximum command length exceeded.\n");
+                exit(-1);
+            }
+        }
+    } else {
+        int prependLen = strlen(prepend);
+        int appendLen = strlen(append);
+
+        for (int i = 0; args[i] != NULL; i++) {
+            int argsLen = strlen(args[i]);
+            if (*commandCount + argsLen + appendLen + prependLen < MAX_COMMAND_LEN) {
+                memcpy(command + *commandCount, prepend, prependLen);
+                *commandCount += prependLen;
+
+                memcpy(command + *commandCount, args[i], argsLen);
+                *commandCount += argsLen;
+
+                memcpy(command + *commandCount, append, appendLen);
+                *commandCount += appendLen;
+            } else {
+                printf("Maximum command length exceeded.\n");
+                exit(-1);
+            }
+        }
+    }
+
+    return 0;
+}
+
+void printHelpMessage(void) {
+    printf(
+        "------------------------------ Build System Settings and Instructions ------------------------------\n"
+        "First, in the root/parent directory (folder) of your project, create a file named build.set\n"
+        "It is very important it is spelled exactly like that and has no hidden file extensions.\n\n"
+        "In the build.set file that you created you can create a profile by typing 'profile : your_profile_name = {}'\n\n"
+        "In the build.set file you can have as many profiles as you would like, and just have to repeat\n"
+        "what was done above to create a new profile.\n\n"
+        "Inside the curly braces of the profile you have the following options:\n"
+        "src = [file1.c, file2.c, file3.c, etc.] <- necessary, the source files of your project\n\n"
+        "include = [\"C:\\ProgrammingUtils\\OpenGL\\includes\", etc.] <- not required, the include folders for header files\n"
+        "in a different directory than the root directory of your project\n\n"
+        "libFolder = [\"C:\\ProgrammingUtils\\OpenGL\\lib\"] <- not required, the directories of any libraries you wish to link to\n\n"
+        "libs = [libglfw3.a, libgdi32.a, etc.] <- not required, the names of the libraries you wish to link to (file extensions must be included)\n\n"
+        "out = [main] <- necessary, inside the brackets should be one item, which is the name of the output executable\n\n"
+        "compilerPath = [gcc] <- necessary, the path to the compiler of your choice\n\n"
+        "args = [-Wall] <- not required, any command line options you would like to pass to the compiler\n\n"
+        "compilerFormat = [gcc/clang] <- necessary, options for command formatting are 'gcc/clang' or 'msvc'\n\n"
+        "linkerOptions = [-Map, output.map] <- not required, any options you would like to pass to the linker\n\n"
+        "A basic build.set file would look like:\n\nprofile : your_profile_name = {\n"
+        "    src = [\n        main.c,\n        file2.c,\n        file3.c\n    ]\n    compilerFormat = [gcc/clang]\n    compilerPath = [gcc]\n    out = [main]\n}\n\n"
+        "Note how elements inside the brackets can span multiple lines, as seen above with src = \n\n"
+        "When invoking this executable in the terminal you have the following command line options:\n"
+        "(None) -> if no command line arguments are passed into this executable, it will simply search for the first\n"
+        "          profile, generate its build command, and then run it.\n\n"
+        "profile -> you can pass in the name of one of the profile's you created, and it will search for that\n"
+        "           profile to generate the build command.\n\n"
+        "-printOnly -> This will generate the build command for the first profile in build.set and print it to the\n"
+        "              terminal, but it will not actually invoke the compiler (it is basically a preview).\n\n"
+        "-printOnly profile -> This will generate the build command for the specified profile, but will only\n"
+        "                      print it to the console and will not invoke the compiler.\n\n"
+        "-help -> prints out this message you are reading right now\n\0");
 }
