@@ -1,0 +1,18 @@
+profile : profile_name = {
+    src = [main.c, glad.c, file2.c]
+    include = ["C:\ProgrammingUtils\OpenGL\includes"]
+    libFolder = ["C:\ProgrammingUtils\OpenGL\lib"]
+    libs = [libglfw3.a, libgdi32.a]
+    out = [main]  
+    compilerPath = [gcc]
+    args = [-Wall]
+    compilerFormat = []
+}
+
+profile : profile_name_two = {
+    src = [main.c, glad.c, file2.c]
+    out = [main]
+    compilerPath = [gcc]
+}
+
+profile : profile_name_three={}
