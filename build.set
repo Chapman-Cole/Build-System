@@ -20,4 +20,14 @@ profile : msvc = {
     compilerFormat = [msvc]
 }
 
-profile : profile_name_three={}
+profile : test = {
+    src = [
+        main.c, 
+        glad.c, 
+        file2.c
+    ]
+    include = ["C:\Users\colec\C Programs"]
+    out = [main]
+    compilerPath = [gcc]
+    compilerFormat = [gcc/clang]
+}

@@ -145,10 +145,23 @@ void prepFileString(char** str) {
 
     // Clean up the file string by getting rid of spaces and carriage return
     // characters
-    while (strFindReplace(&fbuffer, " ", ""));
-    while (strFindReplace(&fbuffer, "\r", ""));
-    while (strFindReplace(&fbuffer, "\n", ""));
+    while (strFindReplace(&fbuffer, "\r", "")) {fsize--;};
+    while (strFindReplace(&fbuffer, "\n", "")) {fsize--;};
 
+    //Spaces (and tabs) have to be handled carefully so that things inside quotes maintain the spaces
+    int quoteCount = 0;
+    for (int i = 0; i < fsize; i++) {
+        if (fbuffer[i] == '"') {
+            quoteCount = (quoteCount + 1) % 2;
+        } else if ((fbuffer[i] == ' ' || fbuffer[i] == '\t') && quoteCount == 0) {
+            memmove(fbuffer + i, fbuffer + i + 1, fsize - i - 1);
+            fsize--;
+            //Account for removal of character at index i (so character that was at index i + 1 is now at index i, meaning
+            //we have to subtract 1 from i in order to account for the i++ at the end of each iteration)
+            i--;
+        }
+    }
+    fbuffer[fsize] = '\0';
     *str = fbuffer;
 }
 
@@ -689,7 +702,8 @@ void printHelpMessage(void) {
         "linkerOptions = [-Map, output.map] <- not required, any options you would like to pass to the linker\n\n"
         "A basic build.set file would look like:\n\nprofile : your_profile_name = {\n"
         "    src = [\n        main.c,\n        file2.c,\n        file3.c\n    ]\n    compilerFormat = [gcc/clang]\n    compilerPath = [gcc]\n    out = [main]\n}\n\n"
-        "Note how elements inside the brackets can span multiple lines, as seen above with src = \n\n"
+        "Note how elements inside the brackets can span multiple lines, as seen above with src = \n"
+        "Also note that by default spaces are removed unless you place the text inside quotes, like \"C:\\Users\\My Programs\"\n\n"
         "When invoking this executable in the terminal you have the following command line options:\n"
         "(None) -> if no command line arguments are passed into this executable, it will simply search for the first\n"
         "          profile, generate its build command, and then run it.\n\n"

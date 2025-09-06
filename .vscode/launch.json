@@ -8,9 +8,10 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${fileDirname}\\build.exe",
+            "program": "${fileDirname}\\${fileBasenameNoExtension}.exe",
             "args": [
                 "-printOnly",
+                "test"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
@@ -29,7 +30,8 @@
                     "text": "-gdb-set disassembly-flavor intel",
                     "ignoreFailures": true
                 }
-            ]
+            ],
+            "preLaunchTask": "C/C++: gcc.exe build active file"
         }
 
     ]
