@@ -41,7 +41,7 @@ profile : test = {
         glad.c, 
         file2.c
     ]
-    include = ["C:\Users\colec\C Programs"]
+    include = ["C:\Users\user1\C Programs"]
     out = [main]
     compilerPath = [gcc]
     compilerFormat = [gcc/clang]
