@@ -713,5 +713,5 @@ void printHelpMessage(void) {
         "              terminal, but it will not actually invoke the compiler (it is basically a preview).\n\n"
         "-printOnly profile -> This will generate the build command for the specified profile, but will only\n"
         "                      print it to the console and will not invoke the compiler.\n\n"
-        "-help -> prints out this message you are reading right now\n\0");
+        "-help -> prints out this message you are reading right now\n");
 }
